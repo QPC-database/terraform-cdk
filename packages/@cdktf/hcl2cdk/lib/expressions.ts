@@ -81,8 +81,9 @@ export function extractReferencesFromExpression(
 
     const corespondingNodeId = nodeIds.find((id) => {
       const parts = id.split(".");
+      const matchesFirst = parts[0] === referenceParts[0];
       const matchesFirstTwo =
-        parts[0] === referenceParts[0] && parts[1] === referenceParts[1];
+        matchesFirst && (parts[1] === referenceParts[1] || parts.length === 1);
 
       return (
         matchesFirstTwo &&

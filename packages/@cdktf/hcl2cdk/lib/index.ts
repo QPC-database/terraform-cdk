@@ -15,7 +15,7 @@ import {
   referenceToVariableName,
 } from "./expressions";
 
-const valueToTs = (item: any, nodeIds: readonly string[]): t.Expression => {
+const valueToTs = (item: any, nodeIds: string[]): t.Expression => {
   switch (typeof item) {
     case "string":
       return referencesToAst(
@@ -29,6 +29,13 @@ const valueToTs = (item: any, nodeIds: readonly string[]): t.Expression => {
     case "object":
       if (Array.isArray(item)) {
         return t.arrayExpression(item.map((i) => valueToTs(i, nodeIds)));
+      }
+
+      console.log(JSON.stringify(item, null, 2));
+      if (item["dynamic"]) {
+        const { for_each, ...others } = item["dynamic"];
+        const dynamicRef = Object.keys(others)[0];
+        return valueToTs(item["dynamic"], [...nodeIds, dynamicRef]);
       }
 
       return t.objectExpression(
@@ -61,6 +68,15 @@ function findUsedReferences(
   }
 
   if (typeof item === "object") {
+    if (item && "dynamic" in item) {
+      const dyn = (item as any)["dynamic"];
+      const { for_each, ...others } = dyn;
+      const dynamicRef = Object.keys(others)[0];
+      return [
+        ...references,
+        ...findUsedReferences([...nodeIds, dynamicRef], dyn),
+      ];
+    }
     return [
       ...references,
       ...Object.values(item as Record<string, any>).reduce(
@@ -81,7 +97,7 @@ function asExpression(
   type: string,
   name: string,
   config: any,
-  nodeIds: readonly string[],
+  nodeIds: string[],
   reference?: Reference
 ) {
   const isNamespacedImport = type.includes(".");
@@ -330,13 +346,18 @@ export async function convertToTypescript(filename: string, hcl: string) {
   );
   const nodeIds = Object.keys(nodeMap);
 
-  // Add Edges
-  function addGlobalEdges(_key: string, id: string, value: unknown) {
+  function addEdges(id: string, value: unknown) {
     findUsedReferences(nodeIds, value).forEach((ref) => {
-      if (!graph.hasDirectedEdge(ref.referencee.id, id)) {
+      if (
+        !graph.hasDirectedEdge(ref.referencee.id, id) &&
+        graph.hasNode(ref.referencee.id) // in case the referencee is a dynamic variable
+      ) {
         graph.addDirectedEdge(ref.referencee.id, id, { ref });
       }
     });
+  }
+  function addGlobalEdges(_key: string, id: string, value: unknown) {
+    addEdges(id, value);
   }
   function addNamespacedEdges(
     _type: string,
@@ -344,11 +365,7 @@ export async function convertToTypescript(filename: string, hcl: string) {
     id: string,
     value: unknown
   ) {
-    findUsedReferences(nodeIds, value).forEach((ref) => {
-      if (!graph.hasDirectedEdge(ref.referencee.id, id)) {
-        graph.addDirectedEdge(ref.referencee.id, id, { ref });
-      }
-    });
+    addEdges(id, value);
   }
 
   Object.values({

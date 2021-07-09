@@ -199,13 +199,30 @@ new aws.S3Bucket(this, \\"examplebucket\\", {
 "
 `;
 
+exports[`convert dynamic blocks configuration 1`] = `
+"const settings = new TerraformVariable(this, \\"settings\\", {});
+new aws.ElasticBeanstalkEnvironment(this, \\"tfenvtest\\", {
+  setting: [
+    {
+      content: [
+        {
+          name: \`\\\\\${\${settingValue.fqn}[\\"name\\"]}\`,
+          namespace: \`\\\\\${\${settingValue.fqn}[\\"namespace\\"]}\`,
+          value: \`\\\\\${\${settingValue.fqn}[\\"value\\"]}\`,
+        },
+      ],
+      forEach: settings.fqn,
+    },
+  ],
+});
+"
+`;
+
 exports[`convert empty provider configuration 1`] = `
 "import * as docker from \\"./.gen/docker\\";
 new docker.DockerProvider(this, \\"docker\\", {});
 "
 `;
-
-exports[`convert errors on dynamic blocks 1`] = `"Found a reference that is unknown: \${setting.value[\\"name\\"]} was not found in [\\"var.settings\\",\\"aws_elastic_beanstalk_environment.tfenvtest\\"]"`;
 
 exports[`convert errors on provider alias 1`] = `"Unsupported Terraform feature found at \\"aws2\\": provider alias are not yet supported"`;
 
